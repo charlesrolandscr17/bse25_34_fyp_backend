@@ -1,13 +1,14 @@
 from typing import Union
-
 from fastapi import FastAPI
+
+from parser.parser import word
 
 app = FastAPI()
 
 
 @app.get("/")
 async def read_root():
-    return {"Hello": "World"}
+    return {"Hello": word}
 
 
 @app.get("/items/{item_id}")
