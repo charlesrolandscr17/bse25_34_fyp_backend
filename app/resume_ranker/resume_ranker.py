@@ -1,28 +1,27 @@
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from pdfminer.high_level import extract_text
 import docx2txt
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import SystemMessage, HumanMessage
 from supabase import create_client, Client
 
+import spacy
+import PyPDF2
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import regex as re
+
 from dotenv import dotenv_values
 
 config = dotenv_values(".env")
-
-# print("Config", config)
 
 # Set up Google Gemini API key
 os.environ["GOOGLE_API_KEY"] = config["API_KEY"]
 
 # Initialize LangChain Gemini model
 gemini_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.7)
-
-
-def extract_text_from_pdf(pdf_path):
-    return extract_text(pdf_path)
 
 
 def extract_text_from_docx(docx_path):
@@ -167,3 +166,69 @@ def insert_embeddings_to_supabase(resume_texts):
 def create_embeddings(text):
     embedding = embedding_model.embed_query(text)
     return embedding
+
+
+def rank_with_tfidf(job_description, resume_texts, resume_type):
+    # Load spaCy NER model
+    nlp = spacy.load("en_core_web_sm")
+
+    # Sample job description
+    # job_description = "NLP Specialist: Develop and implement NLP algorithms. Proficiency in Python, NLP libraries, and ML frameworks required."
+
+    # List of resume PDF file paths
+    resume_paths = []
+
+    # Extract job description features using TF-IDF
+    tfidf_vectorizer = TfidfVectorizer()
+    job_desc_vector = tfidf_vectorizer.fit_transform([job_description])
+
+    # Rank resumes based on similarity
+    ranked_resumes = []
+
+    if resume_type == "pdf":
+        resume_paths.extend(resume_texts)
+        for resume_path in resume_paths:
+            resume_text = extract_text_from_pdf(resume_path)
+            emails, names = extract_entities(resume_text)
+            resume_vector = tfidf_vectorizer.transform([resume_text])
+            similarity = cosine_similarity(job_desc_vector, resume_vector)[0][0]
+            ranked_resumes.append((names, emails, similarity))
+    elif resume_type == "docx":
+        resume_paths.extend(resume_texts)
+        for resume_path in resume_paths:
+            resume_text = extract_text_from_docx(resume_path)
+            emails, names = extract_entities(resume_text)
+            resume_vector = tfidf_vectorizer.transform([resume_text])
+            similarity = cosine_similarity(job_desc_vector, resume_vector)[0][0]
+            ranked_resumes.append((names, emails, similarity))
+    else:
+        for resume_text in resume_texts:
+            emails, names = extract_entities(resume_text)
+            resume_vector = tfidf_vectorizer.transform([resume_text])
+            similarity = cosine_similarity(job_desc_vector, resume_vector)[0][0]
+            ranked_resumes.append((names, emails, similarity))
+
+    # Sort resumes by similarity score
+    ranked_resumes.sort(key=lambda x: x[2], reverse=True)
+
+    return ranked_resumes
+
+
+def extract_entities(text):
+    # Extract emails using regular expression
+    emails = re.findall(r"\S+@\S+", text)
+    # Extract names using a simple pattern (assuming "First Last" format)
+    names = re.findall(r"^([A-Z][a-z]+)\s+([A-Z][a-z]+)", text)
+    if names:
+        names = [" ".join(names[0])]
+
+    return emails, names
+
+
+def extract_text_from_pdf(pdf_path):
+    with open(pdf_path, "rb") as pdf_file:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text

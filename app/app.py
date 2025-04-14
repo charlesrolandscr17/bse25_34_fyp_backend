@@ -1,5 +1,6 @@
 from typing import Union
 from fastapi import FastAPI
+from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import dotenv_values
 
@@ -16,43 +17,56 @@ from resume_ranker.resume_ranker import (
     retrieve_top_resumes,
     rank_resumes_with_gemini,
     create_vector_store,
+    rank_with_tfidf,
 )
 
 app = FastAPI()
 
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "word"}
+class JobDescription(BaseModel):
+    description: str
 
 
-@app.post("/ranking")
-async def rank_resumes(job_description: str):
+class Skills(BaseModel):
+    user_skills: str
+    job_skills: list[str]
+
+
+class Ranking(BaseModel):
+    job_description: str
+    resumes: list[str]
+    type: str
+
+
+@app.post("/ranking_gemini")
+async def rank_resumes(job_description: JobDescription):
     resume_texts = response = supabase.table("resumes").select("*").execute()
     resume_texts = [resume["text"] for resume in resume_texts.data]
     retriever = create_vector_store(resume_texts)
-    resumes = retrieve_top_resumes(job_description, retriever)
-    response = rank_resumes_with_gemini(job_description, resumes)
+    resumes = retrieve_top_resumes(job_description.description, retriever)
+    response = rank_resumes_with_gemini(job_description.description, resumes)
     return {"ranked_resumes": response}
 
 
-@app.post("/recommendations")
-async def get_recommendations(user_skills: str):
-    job_skills = [
-        "SQL, CSS, AI, JavaScript, Data Science",
-        "AI, Data Science, SQL, Python, CSS",
-        "SQL, AI, Python",
-        "Java, AI, Python, Data Science, Machine Learning",
-        "Machine Learning, C++",
-    ]
+@app.post("/ranking_tfidf")
+async def rank_resumes_tfidf(ranking: Ranking):
+    return rank_with_tfidf(
+        ranking.job_description,
+        ranking.resumes,
+        ranking.type,
+    )
 
-    retriever = create_vector_store(job_skills)
-    recommendations = retrieve_top_resumes(user_skills, retriever, top_k=3)
+
+@app.post("/recommendations")
+async def get_recommendations(skills: Skills):
+    print("Skills", skills)
+    retriever = create_vector_store(skills.job_skills)
+    recommendations = retrieve_top_resumes(skills.user_skills, retriever, top_k=3)
     return {"recommendations": recommendations}
 
 
 @app.post("/create_embedding")
-async def test_api(text: str = ""):
+async def create_embeddings(text: str = ""):
     insert_embeddings_to_supabase(text)
     return {"message": "Resumes and embeddings uploaded to Supabase."}
 
