@@ -1,0 +1,10 @@
+docx2txt==0.9
+torch==2.6.0
+supabase==2.15.0
+"fastapi[standard]"
+scikit-learn==1.6.1
+langchain_community==0.3.21
+langchain-google-genai==2.1.2
+langchain-huggingface==0.1.2
+PyPDF2==3.0.1
+en_core_web_sm
