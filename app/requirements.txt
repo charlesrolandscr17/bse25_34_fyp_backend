@@ -9,3 +9,4 @@ langchain-huggingface==0.1.2
 PyPDF2==3.0.1
 spacy==3.8.2
 hf_xet
+nltk==3.9.1
