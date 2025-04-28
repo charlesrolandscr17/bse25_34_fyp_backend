@@ -13,15 +13,21 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import regex as re
 
+from sentence_transformers import SentenceTransformer
+from transformers import pipeline
+
 from dotenv import dotenv_values
 
-config = dotenv_values(".env")
+config = dotenv_values("../.env")
 
 # Set up Google Gemini API key
 os.environ["GOOGLE_API_KEY"] = config["API_KEY"]
 
 # Initialize LangChain Gemini model
 gemini_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.7)
+
+# Load model from Hugging Face
+# ranking_model = SentenceTransformer("scr17/fyp")
 
 
 def extract_text_from_docx(docx_path):
@@ -232,3 +238,23 @@ def extract_text_from_pdf(pdf_path):
         for page in pdf_reader.pages:
             text += page.extract_text()
         return text
+
+
+class Ranking:
+    job_description: str
+    resume: str
+
+
+# def ranker(ranking: Ranking):
+#     job_description = ranking.job_description
+#     resume_text = ranking.resume
+
+#     embedding_job = ranking_model.encode(job_description)
+#     embedding_resume = ranking_model.encode(resume_text)
+
+#     # Compute cosine similarity
+#     from sklearn.metrics.pairwise import cosine_similarity
+
+#     similarity_score = cosine_similarity([embedding_job], [embedding_resume])
+
+#     print(f"Predicted Match Score: {similarity_score[0][0]:.4f}")
