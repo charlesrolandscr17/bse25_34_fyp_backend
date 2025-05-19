@@ -270,7 +270,7 @@ def match_resumes(req: MatchRequest):
 @app.post("/match_resume_file", response_model=MatchResponse)
 def match_resumes(req: MatchRequest):
     # Preprocess inputs
-    cleaned_job_desc = clean_text(get_text(req.job_description))
+    cleaned_job_desc = clean_text(req.job_description)
     cleaned_resume = clean_text(get_text(req.resume))
 
     # Encode full inputs

@@ -6,6 +6,7 @@ scikit-learn==1.6.1
 langchain_community==0.3.21
 langchain-google-genai==2.1.2
 langchain-huggingface==0.1.2
-PyPDF2==3.0.1
 spacy==3.8.2
-hf_xet
+nltk==3.9.1
+PyMuPDF==1.25.5
+requests
