@@ -265,3 +265,45 @@ def match_resumes(req: MatchRequest):
     return MatchResponse(
         similarity_score=round(score, 4), decision=decision, word_matches=word_matches
     )
+
+
+@app.post("/match_resume_file", response_model=MatchResponse)
+def match_resumes(req: MatchRequest):
+    # Preprocess inputs
+    cleaned_job_desc = clean_text(get_text(req.job_description))
+    cleaned_resume = clean_text(get_text(req.resume))
+
+    # Encode full inputs
+    jd_embedding = model.encode(cleaned_job_desc, convert_to_tensor=True)
+    cv_embedding = model.encode(cleaned_resume, convert_to_tensor=True)
+
+    # Compute overall similarity
+    score = util.cos_sim(jd_embedding, cv_embedding).item()
+    decision = "select" if score >= req.threshold else "reject"
+
+    # Tokenize cleaned inputs
+    job_tokens = cleaned_job_desc.split()
+    resume_tokens = cleaned_resume.split()
+
+    # Encode tokens individually
+    job_embeddings = model.encode(job_tokens, convert_to_tensor=True)
+    resume_embeddings = model.encode(resume_tokens, convert_to_tensor=True)
+
+    # Compute pairwise similarity matrix
+    similarity_matrix = util.cos_sim(job_embeddings, resume_embeddings)
+
+    # For each resume word, find best matching job word
+    word_matches = []
+    for i, resume_token in enumerate(resume_tokens):
+        best_match_idx = similarity_matrix[:, i].argmax()
+        best_match_score = similarity_matrix[best_match_idx, i].item()
+        match = WordMatch(
+            resume_word=resume_token,
+            best_job_word=job_tokens[best_match_idx],
+            score=round(best_match_score, 4),
+        )
+        word_matches.append(match)
+
+    return MatchResponse(
+        similarity_score=round(score, 4), decision=decision, word_matches=word_matches
+    )
